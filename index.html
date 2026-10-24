@@ -1,0 +1,357 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Typing Speed Test</title>
+<meta name="description" content="A quick, clean typing speed game. Type the words, watch your WPM and accuracy, and beat your best score. Runs entirely in your browser.">
+<style>
+  :root {
+    --bg: #0d1117;
+    --card: #161b22;
+    --border: #272e3a;
+    --text: #e6edf3;
+    --muted: #6e7681;
+    --dim: #484f58;
+    --accent: #58a6ff;
+    --good: #3fb950;
+    --bad: #f85149;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; min-height: 100%; }
+  body {
+    background: radial-gradient(1000px 500px at 50% -5%, #15213a 0%, var(--bg) 55%);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    min-height: 100vh;
+  }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 40px 16px 64px; }
+  header { text-align: center; margin-bottom: 20px; }
+  h1 { font-size: 1.6rem; margin: 0 0 4px; letter-spacing: -0.02em; }
+  .sub { color: var(--muted); font-size: 0.92rem; margin: 0; }
+
+  .bar { display: flex; align-items: center; justify-content: center; gap: 10px; margin: 18px 0; flex-wrap: wrap; }
+  .durations { display: inline-flex; border: 1px solid var(--border); border-radius: 999px; overflow: hidden; }
+  .durations button {
+    background: transparent; color: var(--muted); border: 0; padding: 7px 16px;
+    font: inherit; font-size: 0.85rem; cursor: pointer;
+  }
+  .durations button.active { background: var(--accent); color: #04142e; font-weight: 700; }
+
+  .stats { display: flex; justify-content: center; gap: 28px; margin: 14px 0 20px; }
+  .stat { text-align: center; }
+  .stat .v { font-size: 1.9rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .stat .v.accent { color: var(--accent); }
+  .stat .k { color: var(--muted); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; }
+
+  .card {
+    position: relative;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 26px;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.35);
+  }
+  .passage {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 1.35rem;
+    line-height: 2.1rem;
+    letter-spacing: 0.02em;
+    color: var(--dim);
+    user-select: none;
+    max-height: 8.4rem;
+    overflow: hidden;
+  }
+  .passage .ch { position: relative; }
+  .passage .ch.correct { color: var(--text); }
+  .passage .ch.incorrect { color: var(--bad); }
+  .passage .ch.incorrect.space { background: rgba(248,81,73,0.25); border-radius: 2px; }
+  .passage .ch.current::before {
+    content: ""; position: absolute; left: -1px; top: 10%; bottom: 10%;
+    width: 2px; background: var(--accent); border-radius: 2px;
+    animation: blink 1s step-start infinite;
+  }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  #capture {
+    position: absolute; opacity: 0; pointer-events: none;
+    left: 0; top: 0; width: 1px; height: 1px;
+  }
+  .hint { text-align: center; color: var(--muted); font-size: 0.82rem; margin-top: 16px; }
+
+  .overlay {
+    position: absolute; inset: 0; border-radius: 14px;
+    background: rgba(13,17,23,0.92);
+    display: none; flex-direction: column; align-items: center; justify-content: center;
+    text-align: center; padding: 24px;
+  }
+  .overlay.show { display: flex; }
+  .overlay .big { font-size: 3.4rem; font-weight: 800; color: var(--accent); line-height: 1; }
+  .overlay .big span { font-size: 1.1rem; color: var(--muted); font-weight: 600; }
+  .overlay .sum { color: var(--muted); margin: 10px 0 4px; }
+  .overlay .best { color: var(--good); font-size: 0.9rem; min-height: 1.2em; }
+
+  .controls { display: flex; justify-content: center; margin-top: 20px; }
+  .btn {
+    background: var(--accent); color: #04142e; border: 0; border-radius: 10px;
+    padding: 11px 26px; font: inherit; font-weight: 700; font-size: 1rem; cursor: pointer;
+  }
+  .btn:hover { filter: brightness(1.08); }
+  .btn.ghost { background: transparent; color: var(--text); border: 1px solid var(--border); }
+
+  footer { text-align: center; color: var(--muted); font-size: 0.82rem; margin-top: 26px; }
+  footer a { color: var(--accent); text-decoration: none; }
+  footer a:hover { text-decoration: underline; }
+
+  @media (max-width: 520px) {
+    .passage { font-size: 1.15rem; line-height: 1.9rem; }
+    .stat .v { font-size: 1.5rem; }
+    .stats { gap: 18px; }
+  }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>Typing Speed Test</h1>
+      <p class="sub">Type the words below. Your timer starts on the first key.</p>
+    </header>
+
+    <div class="bar">
+      <div class="durations" id="durations" role="group" aria-label="Test length">
+        <button data-sec="15">15s</button>
+        <button data-sec="30" class="active">30s</button>
+        <button data-sec="60">60s</button>
+      </div>
+    </div>
+
+    <div class="stats">
+      <div class="stat"><div class="v accent" id="wpm">0</div><div class="k">WPM</div></div>
+      <div class="stat"><div class="v" id="acc">100%</div><div class="k">Accuracy</div></div>
+      <div class="stat"><div class="v" id="time">30</div><div class="k">Seconds</div></div>
+    </div>
+
+    <div class="card" id="card">
+      <div class="passage" id="passage" aria-hidden="true"></div>
+      <input id="capture" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="Type here">
+      <p class="hint" id="hint">Click here and start typing</p>
+
+      <div class="overlay" id="overlay">
+        <div class="big" id="finalWpm">0 <span>WPM</span></div>
+        <div class="sum" id="finalSum"></div>
+        <div class="best" id="bestLine"></div>
+        <div class="controls"><button class="btn" id="again">Try again</button></div>
+      </div>
+    </div>
+
+    <div class="controls">
+      <button class="btn ghost" id="restart">Restart</button>
+    </div>
+
+    <footer>
+      Built by <a href="https://github.com/Siddique-12300983">ruxcipher</a> &middot;
+      <a href="https://github.com/Siddique-12300983/typing-speed-game">source</a>
+    </footer>
+  </div>
+
+<script>
+(function () {
+  "use strict";
+
+  var WORDS = ("the of and a to in is you that it he was for on are as with his they i at be this have " +
+    "from or one had by word but not what all were we when your can said there use an each which she do how " +
+    "their if will up other about out many then them these so some her would make like him into time has look " +
+    "two more write go see number no way could people my than first water been call who oil its now find long " +
+    "down day did get come made may part over new sound take only little work know place year live me back give " +
+    "most very after thing our just name good sentence man think say great where help through much before line " +
+    "right too mean old any same tell boy follow came want show also around form three small set put end does " +
+    "another well large must big even such because turn here why ask went men read need land different home us " +
+    "move try kind hand picture again change off play spell air away animal house point page letter mother " +
+    "answer found study still learn should world high every near add food between own below country plant last " +
+    "school father keep tree never start city earth eye light thought head under story saw left dont few while").split(/\s+/);
+
+  var DEFAULT_SEC = 30;
+
+  var passageEl = document.getElementById("passage");
+  var captureEl = document.getElementById("capture");
+  var hintEl = document.getElementById("hint");
+  var wpmEl = document.getElementById("wpm");
+  var accEl = document.getElementById("acc");
+  var timeEl = document.getElementById("time");
+  var overlay = document.getElementById("overlay");
+  var finalWpmEl = document.getElementById("finalWpm");
+  var finalSumEl = document.getElementById("finalSum");
+  var bestLineEl = document.getElementById("bestLine");
+
+  var text = "";
+  var spans = [];
+  var duration = DEFAULT_SEC;
+  var started = false;
+  var finished = false;
+  var startTime = 0;
+  var tick = null;
+  var keystrokes = 0;
+  var errors = 0;
+  var prev = "";
+
+  function randomText(nWords) {
+    var out = [];
+    for (var i = 0; i < nWords; i++) out.push(WORDS[(Math.random() * WORDS.length) | 0]);
+    return out.join(" ");
+  }
+
+  function buildPassage() {
+    text = randomText(220);
+    spans = [];
+    var frag = document.createDocumentFragment();
+    for (var i = 0; i < text.length; i++) {
+      var s = document.createElement("span");
+      s.className = "ch";
+      s.textContent = text[i];
+      if (text[i] === " ") s.classList.add("space");
+      frag.appendChild(s);
+      spans.push(s);
+    }
+    passageEl.innerHTML = "";
+    passageEl.appendChild(frag);
+    markCurrent(0);
+  }
+
+  function markCurrent(pos) {
+    for (var i = 0; i < spans.length; i++) spans[i].classList.remove("current");
+    if (pos < spans.length) spans[pos].classList.add("current");
+  }
+
+  function reset() {
+    finished = false;
+    started = false;
+    keystrokes = 0;
+    errors = 0;
+    prev = "";
+    captureEl.value = "";
+    clearInterval(tick);
+    tick = null;
+    overlay.classList.remove("show");
+    wpmEl.textContent = "0";
+    accEl.textContent = "100%";
+    timeEl.textContent = duration;
+    hintEl.style.visibility = "visible";
+    buildPassage();
+    captureEl.focus();
+  }
+
+  function minutesElapsed() {
+    return Math.max((Date.now() - startTime) / 60000, 1 / 60000);
+  }
+
+  function correctCharsInPrefix(v) {
+    var c = 0;
+    for (var i = 0; i < v.length; i++) if (v[i] === text[i]) c++;
+    return c;
+  }
+
+  function liveStats() {
+    var v = captureEl.value;
+    var correct = correctCharsInPrefix(v);
+    var wpm = Math.round((correct / 5) / minutesElapsed());
+    wpmEl.textContent = isFinite(wpm) ? wpm : 0;
+    var acc = keystrokes ? Math.round(((keystrokes - errors) / keystrokes) * 100) : 100;
+    accEl.textContent = acc + "%";
+  }
+
+  function start() {
+    started = true;
+    startTime = Date.now();
+    hintEl.style.visibility = "hidden";
+    tick = setInterval(function () {
+      var left = Math.ceil(duration - (Date.now() - startTime) / 1000);
+      if (left <= 0) { timeEl.textContent = "0"; finish(); return; }
+      timeEl.textContent = left;
+      liveStats();
+    }, 100);
+  }
+
+  function finish() {
+    if (finished) return;
+    finished = true;
+    clearInterval(tick);
+    tick = null;
+
+    var v = captureEl.value;
+    var correct = correctCharsInPrefix(v);
+    var mins = Math.min(minutesElapsed(), duration / 60);
+    var wpm = Math.round((correct / 5) / mins);
+    if (!isFinite(wpm) || wpm < 0) wpm = 0;
+    var acc = keystrokes ? Math.round(((keystrokes - errors) / keystrokes) * 100) : 100;
+
+    finalWpmEl.innerHTML = wpm + ' <span>WPM</span>';
+    finalSumEl.textContent = acc + "% accuracy · " + correct + " correct characters";
+
+    var best = loadBest();
+    if (wpm > best) {
+      saveBest(wpm);
+      bestLineEl.textContent = "New best score!";
+    } else {
+      bestLineEl.textContent = "Best: " + best + " WPM";
+    }
+    overlay.classList.add("show");
+  }
+
+  function loadBest() {
+    try { return parseInt(localStorage.getItem("typing-best-wpm") || "0", 10) || 0; }
+    catch (e) { return 0; }
+  }
+  function saveBest(v) {
+    try { localStorage.setItem("typing-best-wpm", String(v)); } catch (e) {}
+  }
+
+  function onInput() {
+    if (finished) { captureEl.value = prev; return; }
+    var v = captureEl.value;
+    if (v.length > text.length) v = v.slice(0, text.length);
+
+    if (!started && v.length > 0) start();
+
+    // Count new keystrokes (characters appended since last event).
+    if (v.length > prev.length) {
+      for (var i = prev.length; i < v.length; i++) {
+        keystrokes++;
+        if (v[i] !== text[i]) errors++;
+      }
+    }
+    prev = v;
+
+    // Repaint character states.
+    for (var j = 0; j < spans.length; j++) {
+      var cls = "ch" + (text[j] === " " ? " space" : "");
+      if (j < v.length) cls += (v[j] === text[j]) ? " correct" : " incorrect";
+      spans[j].className = cls;
+    }
+    markCurrent(v.length);
+
+    liveStats();
+    if (v.length >= text.length) finish();
+  }
+
+  // --- wiring --------------------------------------------------------------
+  captureEl.addEventListener("input", onInput);
+  document.getElementById("card").addEventListener("click", function () { captureEl.focus(); });
+  document.getElementById("restart").addEventListener("click", reset);
+  document.getElementById("again").addEventListener("click", reset);
+
+  var durWrap = document.getElementById("durations");
+  durWrap.addEventListener("click", function (e) {
+    var btn = e.target.closest ? e.target.closest("button") : null;
+    if (!btn) return;
+    duration = parseInt(btn.getAttribute("data-sec"), 10);
+    var all = durWrap.getElementsByTagName("button");
+    for (var i = 0; i < all.length; i++) all[i].classList.remove("active");
+    btn.classList.add("active");
+    reset();
+  });
+
+  reset();
+})();
+</script>
+</body>
+</html>
