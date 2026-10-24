@@ -235,6 +235,10 @@
     wpmEl.textContent = "0";
     accEl.textContent = "100%";
     timeEl.textContent = duration;
+    var best = loadBest();
+    hintEl.textContent = best > 0
+      ? "Click here and start typing \u00b7 best " + best + " WPM"
+      : "Click here and start typing";
     hintEl.style.visibility = "visible";
     buildPassage();
     captureEl.focus();
@@ -338,6 +342,11 @@
   document.getElementById("card").addEventListener("click", function () { captureEl.focus(); });
   document.getElementById("restart").addEventListener("click", reset);
   document.getElementById("again").addEventListener("click", reset);
+
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape") { reset(); return; }
+    if (e.key === "Enter" && finished) { e.preventDefault(); reset(); }
+  });
 
   var durWrap = document.getElementById("durations");
   durWrap.addEventListener("click", function (e) {
